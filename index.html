@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Treemap de Violência</title>
+
+  </head>
+  <body>
+    <h1>Treemap de Violência por Região</h1>
+    <div id="chart"></div>
+    <div id="legend"></div> <!-- Mova a div da legenda para cá -->
+    <script>
+      async function fetchData() {
+        const response = await fetch("dados_violencia.php");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      }
+
+      function calculateColor(currentViolence, previousViolence) {
+        const change = (currentViolence - previousViolence) / previousViolence;
+        const tolerance = 0.001; // Tolerância para considerar a mudança como nenhuma
+        const intensity = Math.abs(change);
+
+        if (intensity < tolerance) {
+          return "steelblue"; // Cor para sem mudança
+        }
+
+        if (change > 0) {
+          return intensity > 0.5
+            ? "darkred"
+            : intensity > 0.08
+            ? "red"
+            : "lightcoral"; // Tons de vermelho para aumento
+        } else {
+          return intensity < -0.5
+            ? "darkgreen"
+            : intensity < -0.08
+            ? "green"
+            : "lightgreen"; // Tons de verde para queda
+        }
+      }
+
+      function renderTreemap(data) {
+        const chart = document.getElementById("chart");
+        const legend = document.getElementById("legend");
+        const usedColors = new Set(); // Armazena as cores usadas no treemap
+        const width = chart.clientWidth;
+        const height = chart.clientHeight;
+
+        function drawRectangle(x, y, w, h, label, color, isState) {
+          const nodeDiv = document.createElement("div");
+          nodeDiv.className = "node";
+          if (isState) {
+            nodeDiv.classList.add("state"); // Adiciona a classe apenas para os estados
+          }
+          nodeDiv.style.left = `${x}px`;
+          nodeDiv.style.top = `${y}px`;
+          nodeDiv.style.width = `${w}px`;
+          nodeDiv.style.height = `${h}px`;
+          nodeDiv.style.backgroundColor = color;
+
+          const labelDiv = document.createElement("div");
+          labelDiv.className = "label";
+          labelDiv.textContent = label;
+          nodeDiv.appendChild(labelDiv);
+
+          chart.appendChild(nodeDiv);
+          usedColors.add(color); // Adiciona a cor usada
+        }
+
+        function renderTreemapRecursively(
+          x,
+          y,
+          w,
+          h,
+          items,
+          isHorizontal,
+          isState = false
+        ) {
+          if (items.length === 0) return;
+
+          let totalValue = items.reduce((sum, item) => sum + item.value, 0);
+
+          if (isHorizontal) {
+            let currentX = x;
+            items.forEach((item) => {
+              const itemWidth = (item.value / totalValue) * w;
+              const itemHeight = h;
+
+              const color = isState
+                ? calculateColor(item.value, item.violencia_ano_anterior)
+                : "transparent";
+
+              drawRectangle(
+                currentX,
+                y,
+                itemWidth,
+                itemHeight,
+                `${item.name} (${((item.value / totalValue) * 100).toFixed(
+                  2
+                )}%)`,
+                color,
+                isState
+              );
+
+              const stateItems = Object.keys(item.states || {}).map(
+                (stateKey) => ({
+                  name: stateKey,
+                  value: item.states[stateKey].violencia,
+                  violencia_ano_anterior:
+                    item.states[stateKey].violencia_ano_anterior,
+                })
+              );
+
+              renderTreemapRecursively(
+                currentX,
+                y,
+                itemWidth,
+                itemHeight,
+                stateItems,
+                !isHorizontal,
+                true
+              );
+              currentX += itemWidth;
+            });
+          } else {
+            let currentY = y;
+            items.forEach((item) => {
+              const itemWidth = w;
+              const itemHeight = (item.value / totalValue) * h;
+
+              const color = isState
+                ? calculateColor(item.value, item.violencia_ano_anterior)
+                : "transparent";
+
+              drawRectangle(
+                x,
+                currentY,
+                itemWidth,
+                itemHeight,
+                `${item.name} (${((item.value / totalValue) * 100).toFixed(
+                  2
+                )}%)`,
+                color,
+                isState
+              );
+
+              const stateItems = Object.keys(item.states || {}).map(
+                (stateKey) => ({
+                  name: stateKey,
+                  value: item.states[stateKey].violencia,
+                  violencia_ano_anterior:
+                    item.states[stateKey].violencia_ano_anterior,
+                })
+              );
+
+              renderTreemapRecursively(
+                x,
+                currentY,
+                itemWidth,
+                itemHeight,
+                stateItems,
+                !isHorizontal,
+                true
+              );
+              currentY += itemHeight;
+            });
+          }
+        }
+
+        const regionItems = Object.keys(data).map((regionKey) => ({
+          name: regionKey,
+          value: Object.values(data[regionKey]).reduce(
+            (sum, state) => sum + state.violencia,
+            0
+          ),
+          violencia_ano_anterior: Object.values(data[regionKey]).reduce(
+            (sum, state) => sum + state.violencia_ano_anterior,
+            0
+          ),
+          states: data[regionKey],
+        }));
+
+        renderTreemapRecursively(0, 0, width, height, regionItems, true);
+
+        // Atualiza a legenda com base nas cores usadas
+        const colorDescriptions = {
+          "darkred": "Aumento Grande",
+          "red": "Aumento Moderado",
+          "lightcoral": "Aumento Pequeno",
+          "darkgreen": "Queda Grande",
+          "green": "Queda Moderada",
+          "lightgreen": "Queda Pequena",
+          "steelblue": "Sem Mudança",
+        };
+
+        usedColors.forEach((color) => {
+          const description = colorDescriptions[color];
+          if (description) {
+            const legendItem = document.createElement("div");
+            legendItem.className = "legend-item";
+
+            const colorBox = document.createElement("div");
+            colorBox.className = "legend-color";
+            colorBox.style.backgroundColor = color;
+
+            const colorText = document.createTextNode(description);
+
+            legendItem.appendChild(colorBox);
+            legendItem.appendChild(colorText);
+            legend.appendChild(legendItem);
+          }
+        });
+      }
+
+      fetchData()
+        .then((data) => {
+          renderTreemap(data);
+        })
+        .catch((error) => {
+          console.error("Erro ao carregar os dados:", error);
+        });
+    </script>
+  </body>
+</html>

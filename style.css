@@ -1,0 +1,51 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+#chart {
+  position: relative;
+  width: 600px; /* Definindo largura fixa */
+  height: 600px; /* Definindo altura fixa */
+  overflow: hidden;
+  border: 1px solid #ddd;
+  margin: 0 auto; /* Centralizando horizontalmente */
+}
+.node {
+  position: absolute;
+  border: 1px solid #fff;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.node.state {
+  border: 1px solid #fff; /* Borda dos estados */
+}
+.label {
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 2px;
+  text-overflow: ellipsis;
+}
+#legend {
+  padding: 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  width: 600px;
+  margin: 10px auto; /* Centralizando horizontalmente */
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+  margin-bottom: 5px;
+}
+.legend-color {
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+}
